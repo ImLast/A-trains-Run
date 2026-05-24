@@ -33,14 +33,22 @@ export default function Leaderboard({ onBack, currentUserId }: LeaderboardProps)
     loadLeaderboard();
   }, []);
 
+  const isGuestUser = currentUserId?.startsWith('guest_');
+
   const displayedScores = filterMode === 'global' 
     ? scores 
     : scores.filter(s => s.userId === currentUserId);
 
   return (
-    <div className="w-full max-w-2xl bg-slate-900/90 border-4 border-cyan-500 rounded-2xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-md">
+    <div className="w-full max-w-2xl bg-slate-950/92 border-4 border-indigo-500 rounded-3xl p-8 shadow-[0_0_50px_rgba(99,102,241,0.22)] relative overflow-hidden backdrop-blur-md z-20">
       {/* Glow lines */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 shadow-lg" />
+      
+      {isGuestUser && (
+        <div className="mb-4 text-[10.5px] font-mono text-amber-400 bg-amber-950/45 border border-amber-500/25 rounded-xl p-3 text-center select-none">
+          ⚠️ Você está no modo <strong>Visitante</strong>. Rankings mundiais requerem login; seus recordes pessoais estão salvos apenas no navegador!
+        </div>
+      )}
       
       <div className="flex items-center justify-between mb-6">
         <button 

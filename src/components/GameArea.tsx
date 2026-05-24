@@ -137,6 +137,7 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
   const starsRef = useRef(0);
   const farRef = useRef(0);
   const midRef = useRef(0);
+  const groundScrollRef = useRef(0);
 
   // Obstacles, Items, Particles
   const obstaclesRef = useRef<ObstacleInstance[]>([]);
@@ -172,7 +173,7 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
       // Jump activation
       if (e.code === 'ArrowUp' || e.code === 'Space') {
         if (playerGroundedRef.current) {
-          playerVYRef.current = 15.5; 
+          playerVYRef.current = 13.0; 
           playerGroundedRef.current = false;
           jumpCountRef.current = 1;
           setJumpCount(1);
@@ -180,7 +181,7 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
           createJumpRing(260 + 22, 35);
         } else if (jumpCountRef.current === 1) {
           // Double Flip jump
-          playerVYRef.current = 12.0;
+          playerVYRef.current = 9.5;
           jumpCountRef.current = 2;
           setJumpCount(2);
           playJumpSound();
@@ -236,6 +237,7 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
       starsRef.current = 0;
       farRef.current = 0;
       midRef.current = 0;
+      groundScrollRef.current = 0;
 
       setMultiplier(1);
       setMultiplierActive(false);
@@ -298,6 +300,12 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
       playerVYRef.current -= 0.65; // High precision responsive gravity
       playerYRef.current += playerVYRef.current;
       
+      // Limit the maximum jump height of A-Train
+      if (playerYRef.current > 135) {
+        playerYRef.current = 135;
+        if (playerVYRef.current > 0) playerVYRef.current = 0;
+      }
+      
       if (playerYRef.current <= 0) {
         playerYRef.current = 0;
         playerVYRef.current = 0;
@@ -311,15 +319,18 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
     starsRef.current -= currentSpeed * 0.04;
     farRef.current -= currentSpeed * 0.10;
     midRef.current -= currentSpeed * 0.30;
+    groundScrollRef.current -= currentSpeed * 1.0;
 
     // Direct background offset DOM manipulation to handle full 60fps refresh rate
     const starsEl = document.getElementById('g-stars');
     const bFarEl = document.getElementById('g-far');
     const bMidEl = document.getElementById('g-mid');
+    const gStripesEl = document.getElementById('ground-stripes');
     
     if (starsEl) starsEl.style.backgroundPositionX = `${starsRef.current}px`;
     if (bFarEl) bFarEl.style.backgroundPositionX = `${farRef.current}px`;
     if (bMidEl) bMidEl.style.backgroundPositionX = `${midRef.current}px`;
+    if (gStripesEl) gStripesEl.style.backgroundPositionX = `${groundScrollRef.current}px`;
 
     // 4. Update the Homelander threat routine
     updateLaserCycles();
@@ -360,14 +371,20 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
       // Sync classes instantly
       if (playerCrouchingRef.current) {
         playerRef.current.classList.add('crouching');
+        playerRef.current.classList.remove('running');
       } else {
         playerRef.current.classList.remove('crouching');
       }
 
       if (!playerGroundedRef.current) {
         playerRef.current.classList.add('jumping');
+        playerRef.current.classList.remove('running');
       } else {
         playerRef.current.classList.remove('jumping');
+      }
+
+      if (playerGroundedRef.current && !playerCrouchingRef.current) {
+        playerRef.current.classList.add('running');
       }
     }
 
@@ -409,24 +426,12 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
         playLaserShootSound();
       }
     } else if (cycle.state === 'shooting') {
-      // Fire sparks visual at ground slice
+      // Fire sparks high in the sky background rather than at player feet level
       if (globalCyclesRef.current % 3 === 0) {
-        createSparks(260 + 20, 35 + 20, '#ff0033');
+        createSparks(420 + Math.random() * 120, 180 + Math.random() * 40, '#ff0033');
       }
 
-      // Check collision: if A-Train is standing up and laser strikes (Y < 85)
-      if (!playerCrouchingRef.current && playerYRef.current < 85) {
-        if (shieldActive) {
-          setShieldActive(false);
-          cycle.state = 'idle';
-          cycle.timer = 170;
-          setLaserActive(false);
-          playHitSound();
-          createFeedbackFlash('shield-break');
-        } else {
-          triggerGameOver();
-        }
-      }
+      // COLLISION REMOVED: Homelander's laser is purely figurative and shoots high overhead, keeping the runner safe!
 
       if (cycle.timer <= 0) {
         cycle.state = 'idle';
@@ -713,12 +718,22 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
       {/* Dynamic floor with track boundaries */}
       <div 
         id="ground" 
-        className="absolute bottom-0 w-full h-[35px] shadow-inner z-[14] transition-all duration-700" 
+        className="absolute bottom-0 w-full h-[35px] shadow-inner z-[14] transition-all duration-700 overflow-hidden" 
         style={{
           borderTop: `6px solid ${currentZone.groundBorder}`,
           background: currentZone.groundBg
         }}
-      />
+      >
+        {/* Scrolling lane stripes to differentiate tracks and boost high quality speed feel */}
+        <div 
+          id="ground-stripes"
+          className="w-[300%] h-1 opacity-60 absolute top-[12px] bg-repeat-x pointer-events-none"
+          style={{
+            backgroundImage: `repeating-linear-gradient(90deg, ${currentZone.particleColor} 0px, ${currentZone.particleColor} 25px, transparent 25px, transparent 75px)`,
+            backgroundSize: '100px 100%'
+          }}
+        />
+      </div>
 
       {/* Top dashboard panels */}
       <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
@@ -767,8 +782,8 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
       {/* Laser threat indicator warnings */}
       {laserWarning && (
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5 select-none pointer-events-none">
-          <span className="text-red-500 font-mono text-sm text-glow-red animate-ping tracking-widest font-black uppercase">¡AVISO: LASER IMINENTE!</span>
-          <span className="text-slate-300 font-sans text-[10px] uppercase tracking-wider bg-red-950/80 border border-red-500 rounded px-2 py-0.5">Mantenha-se Abaixado (Seta Down / S)</span>
+          <span className="text-red-500 font-mono text-sm text-glow-red animate-ping tracking-widest font-black uppercase">¡FÚRIA DE LASER DO PATRIA!</span>
+          <span className="text-slate-300 font-sans text-[10px] uppercase tracking-wider bg-red-950/80 border border-red-500 rounded px-2 py-0.5">Visão térmica cruzando os céus!</span>
         </div>
       )}
 
@@ -791,8 +806,14 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
           </defs>
           
           {/* Cape waves dynamically */}
-          <g className="hl-cape transform-origin-[15px_15px]" style={{ animation: 'capeWave 0.25s infinite ease-in-out alternate' }}>
-            <path d="M12 15 C 4 32, 6 56, 12 56 C 18 56, 26 36, 26 15 Z" fill="url(#hl-cape-grad)"/>
+          <g 
+            className="hl-cape" 
+            style={{ 
+              transformOrigin: '15px 15px',
+              animation: 'capeWave 0.25s infinite ease-in-out alternate' 
+            }}
+          >
+            <path d="M12 15 C 4 32, 6 56, 12 56 C 18 56, 26 36, 26 15 Z" fill="url(#hl-cape-grad)" stroke="#010206" strokeWidth="1.2"/>
             <use href="#hl-star" transform="translate(10, 20) scale(0.25)" fill="white" opacity="0.9"/>
             <use href="#hl-star" transform="translate(14, 25) scale(0.2)" fill="white" opacity="0.9"/>
             <use href="#hl-star" transform="translate(9, 30) scale(0.25)" fill="white" opacity="0.9"/>
@@ -805,40 +826,40 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
           </g>
 
           {/* Golden Eagle shoulder traps on Back */}
-          <ellipse cx="27" cy="18" rx="4.5" ry="3" fill="url(#hl-gold)"/>
+          <ellipse cx="27" cy="18" rx="4.5" ry="3" fill="url(#hl-gold)" stroke="#010206" strokeWidth="1"/>
           
           {/* Back arm */}
           <g id="back-arm">
-            <rect x="25" y="19" width="5.5" height="17" fill="url(#hl-suit)" rx="2" transform="rotate(22 26 19)"/>
-            <rect x="25" y="29" width="5.5" height="7.5" fill="#cc0010" rx="1.5" transform="rotate(22 26 19)"/>
+            <rect x="25" y="19" width="5.5" height="17" fill="url(#hl-suit)" rx="2" transform="rotate(22 26 19)" stroke="#010206" strokeWidth="1"/>
+            <rect x="25" y="29" width="5.5" height="7.5" fill="#cc0010" rx="1.5" transform="rotate(22 26 19)" stroke="#010206" strokeWidth="1"/>
           </g>
 
           {/* Detailed muscular legs */}
-          <rect x="13.5" y="40" width="5.5" height="15" fill="url(#hl-suit)" rx="2"/>
-          <rect x="21" y="40" width="5.5" height="15" fill="url(#hl-suit)" rx="2"/>
+          <rect x="13.5" y="40" width="5.5" height="15" fill="url(#hl-suit)" rx="2" stroke="#010206" strokeWidth="1.2"/>
+          <rect x="21" y="40" width="5.5" height="15" fill="url(#hl-suit)" rx="2" stroke="#010206" strokeWidth="1.2"/>
           
-          <path d="M12 47 Q 16 47 18 55 Q 16 58 12 58 Z" fill="#cc0010"/>
-          <path d="M19.5 47 Q 23.5 47 25.5 55 Q 23.5 58 19.5 58 Z" fill="#cc0010"/>
+          <path d="M12 47 Q 16 47 18 55 Q 16 58 12 58 Z" fill="#cc0010" stroke="#010206" strokeWidth="1"/>
+          <path d="M19.5 47 Q 23.5 47 25.5 55 Q 23.5 58 19.5 58 Z" fill="#cc0010" stroke="#010206" strokeWidth="1"/>
           
           {/* Torso/Chest muscular definition */}
-          <rect x="11.5" y="18" width="17" height="23" fill="url(#hl-suit)" rx="4.5"/>
-          <rect x="13.5" y="37" width="13" height="3" fill="url(#hl-gold)"/> {/* Golden grid belt */}
+          <rect x="11.5" y="18" width="17" height="23" fill="url(#hl-suit)" rx="4.5" stroke="#010206" strokeWidth="1.5"/>
+          <rect x="13.5" y="37" width="13" height="3" fill="url(#hl-gold)" stroke="#010206" strokeWidth="0.8"/> {/* Golden grid belt */}
           
           {/* Muscular Front arm */}
           <g id="front-arm" transform="rotate(-75 13 20)">
-            <rect x="11.5" y="18" width="5.5" height="18" fill="url(#hl-suit)" rx="2" />
-            <rect x="11.5" y="30" width="5.5" height="8" fill="#cc0010" rx="1.5" />
+            <rect x="11.5" y="18" width="5.5" height="18" fill="url(#hl-suit)" rx="2" stroke="#010206" strokeWidth="1"/>
+            <rect x="11.5" y="30" width="5.5" height="8" fill="#cc0010" rx="1.5" stroke="#010206" strokeWidth="1"/>
           </g>
-          <ellipse cx="13" cy="18" rx="4.5" ry="3" fill="url(#hl-gold)"/>
+          <ellipse cx="13" cy="18" rx="4.5" ry="3" fill="url(#hl-gold)" stroke="#010206" strokeWidth="1"/>
 
           {/* Head & Skin tones */}
-          <rect x="14" y="5" width="12" height="13.5" fill="url(#hl-skin)" rx="4"/>
+          <rect x="14" y="5" width="12" height="13.5" fill="url(#hl-skin)" rx="4" stroke="#010206" strokeWidth="1.2"/>
           
           {/* Golden Blonde Hair detail */}
-          <path d="M13 9 C 13 -1, 27 -1, 27 7 C 25 3, 22 4, 19.5 5 C 18 4, 15 3, 13 9 Z" fill="url(#hl-hair)"/>
-          <path d="M27 7 C 27 10, 24 11, 23 8 C 24 6, 26 5, 27 7 Z" fill="url(#hl-hair)"/>
-          <polygon points="13,8 13,11 15,9" fill="url(#hl-hair)"/> 
-          <polygon points="27,7 27,10 25,8" fill="url(#hl-hair)"/> 
+          <path d="M13 9 C 13 -1, 27 -1, 27 7 C 25 3, 22 4, 19.5 5 C 18 4, 15 3, 13 9 Z" fill="url(#hl-hair)" stroke="#010206" strokeWidth="1"/>
+          <path d="M27 7 C 27 10, 24 11, 23 8 C 24 6, 26 5, 27 7 Z" fill="url(#hl-hair)" stroke="#010206" strokeWidth="0.8"/>
+          <polygon points="13,8 13,11 15,9" fill="url(#hl-hair)" stroke="#010206" strokeWidth="0.5"/> 
+          <polygon points="27,7 27,10 25,8" fill="url(#hl-hair)" stroke="#010206" strokeWidth="0.5"/> 
 
           {/* Ruby red Laser eye sockets */}
           <circle cx="21" cy="11.5" r="1.5" fill="#ff0000" />
@@ -847,9 +868,9 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
           <circle cx="25" cy="12" r="0.7" fill="#ffffff" className={`${laserWarning ? 'animate-ping' : ''}`} />
         </svg>
 
-        {/* EYE GLOW RAY BEAM */}
+        {/* EYE GLOW RAY BEAM (Cinematic overhead) */}
         <div 
-          className={`absolute top-[40px] left-[55px] w-[500px] h-3.5 bg-gradient-to-r from-[#ff0000] via-[#ffffff] to-[#ff2222] rounded-full origin-top-left rotate-[17deg] shadow-[0_0_20px_#ff1a1a,0_0_40px_#ff0000] z-16 transition-opacity opacity-0 pointer-events-none duration-100 ${
+          className={`absolute top-[40px] left-[55px] w-[600px] h-3.5 bg-gradient-to-r from-[#ff0000] via-[#ffffff] to-[#ff2222] rounded-full origin-top-left -rotate-[6deg] shadow-[0_0_20px_#ff1a1a,0_0_40px_#ff0000] z-16 transition-opacity opacity-0 pointer-events-none duration-100 ${
             laserActive ? '!opacity-[0.98] animate-pulse scale-y-125' : ''
           }`} 
         />
@@ -902,58 +923,58 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
 
           {/* Athletics boots and legs with sprint animation cycle */}
           <g 
-            className="at-leg-back transform-origin-[15px_38px]" 
-            style={isPlaying ? { animation: 'legRunBack 0.18s infinite linear' } : {}}
+            className="at-leg-back" 
+            style={{ transformOrigin: '15px 38px' }}
           >
-            <rect x="14.5" y="38" width="5.5" height="15" fill="url(#at-suit)" rx="2"/>
+            <rect x="14.5" y="38" width="5.5" height="15" fill="url(#at-suit)" rx="2" stroke="#020206" strokeWidth="1.2"/>
             {/* White trim running shoe */}
-            <path d="M13.5 49 Q 18 47.5 21 53 Q 18 55.5 13.5 54.5 Z" fill="url(#at-armor)"/>
-            <rect x="13" y="52.5" width="7.5" height="2" fill="url(#at-gold)" rx="1"/>
+            <path d="M13.5 49 Q 18 47.5 21 53 Q 18 55.5 13.5 54.5 Z" fill="url(#at-armor)" stroke="#020206" strokeWidth="1"/>
+            <rect x="13" y="52.5" width="7.5" height="2" fill="url(#at-gold)" rx="1" stroke="#020206" strokeWidth="0.5"/>
           </g>
 
           <g 
-            className="at-leg-front transform-origin-[21px_38px]" 
-            style={isPlaying ? { animation: 'legRunFront 0.18s infinite linear' } : {}}
+            className="at-leg-front" 
+            style={{ transformOrigin: '21px 38px' }}
           >
-            <rect x="20.5" y="38" width="5.5" height="15" fill="url(#at-suit)" rx="2"/>
+            <rect x="20.5" y="38" width="5.5" height="15" fill="url(#at-suit)" rx="2" stroke="#020206" strokeWidth="1.2"/>
             {/* White trim running shoe */}
-            <path d="M19.5 49 Q 24 47.5 27 53 Q 24 55.5 19.5 54.5 Z" fill="url(#at-armor)"/>
-            <rect x="19" y="52.5" width="7.5" height="2" fill="url(#at-gold)" rx="1"/>
+            <path d="M19.5 49 Q 24 47.5 27 53 Q 24 55.5 19.5 54.5 Z" fill="url(#at-armor)" stroke="#020206" strokeWidth="1"/>
+            <rect x="19" y="52.5" width="7.5" height="2" fill="url(#at-gold)" rx="1" stroke="#020206" strokeWidth="0.5"/>
           </g>
           
           <g 
-            className="at-torso-group transform-origin-[17px_35px]" 
-            style={isPlaying ? { animation: 'torsoBob 0.09s infinite ease-in-out alternate' } : {}}
+            className="at-torso-group" 
+            style={{ transformOrigin: '17px 35px' }}
           >
             {/* Back Arm swing */}
             <g 
-              className="at-arm-back transform-origin-[15px_21px]" 
-              style={isPlaying ? { animation: 'armRunBack 0.18s infinite ease-in-out alternate', filter: 'brightness(0.65)' } : { filter: 'brightness(0.65)' }}
+              className="at-arm-back" 
+              style={{ transformOrigin: '15px 21px', filter: 'brightness(0.65)' }}
             >
-              <rect x="12.5" y="20" width="5.5" height="14" fill="url(#at-suit)" rx="2.5"/>
-              <ellipse cx="15px" cy="21" rx="3.5" ry="3.5" fill="url(#at-armor)"/>
+              <rect x="12.5" y="20" width="5.5" height="14" fill="url(#at-suit)" rx="2.5" stroke="#020206" strokeWidth="1"/>
+              <ellipse cx="15px" cy="21" rx="3.5" ry="3.5" fill="url(#at-armor)" stroke="#020206" strokeWidth="1"/>
             </g>
 
             {/* Premium detailed suit muscle mesh and chest armour */}
-            <rect x="13.5" y="18" width="14.5" height="23" fill="url(#at-suit)" rx="5"/>
-            <path d="M16.5 20 Q 20.5 21.5 24.5 20 V 30 C 20.5 32, 16.5 31, 16.5 20 Z" fill="url(#at-armor)"/>
+            <rect x="13.5" y="18" width="14.5" height="23" fill="url(#at-suit)" rx="5" stroke="#020206" strokeWidth="1.2"/>
+            <path d="M16.5 20 Q 20.5 21.5 24.5 20 V 30 C 20.5 32, 16.5 31, 16.5 20 Z" fill="url(#at-armor)" stroke="#020206" strokeWidth="1.2"/>
             {/* Golden lightning belt accent */}
             <path d="M13.5 35 L 18 36 L 20 34 L 23 36 L 28 35" stroke="url(#at-gold)" strokeWidth="2" fill="none" />
             
             {/* Front Arm Swing */}
             <g 
-              className="at-arm transform-origin-[23px_21px]" 
-              style={isPlaying ? { animation: 'armRun 0.18s infinite ease-in-out alternate' } : {}}
+              className="at-arm" 
+              style={{ transformOrigin: '23px 21px' }}
             >
-              <rect x="20.5" y="20" width="5.5" height="14" fill="url(#at-suit)" rx="2.5"/>
-              <ellipse cx="23px" cy="21" rx="3.5" ry="3.5" fill="url(#at-armor)"/>
+              <rect x="20.5" y="20" width="5.5" height="14" fill="url(#at-suit)" rx="2.5" stroke="#020206" strokeWidth="1.2"/>
+              <ellipse cx="23px" cy="21" rx="3.5" ry="3.5" fill="url(#at-armor)" stroke="#020206" strokeWidth="1.2"/>
             </g>
             
             {/* Sleek silver high-tech helmet with shiny visor */}
-            <rect x="16" y="5" width="10" height="12.5" fill="url(#at-skin)" rx="4"/>
-            <path d="M15.5 5 C 15.5 -0.5, 26.5 -0.5, 26.5 5 C 25.5 4, 16.5 3.5, 15.5 5 Z" fill="url(#at-suit)"/>
+            <rect x="16" y="5" width="10" height="12.5" fill="url(#at-skin)" rx="4" stroke="#020206" strokeWidth="1.2"/>
+            <path d="M15.5 5 C 15.5 -0.5, 26.5 -0.5, 26.5 5 C 25.5 4, 16.5 3.5, 15.5 5 Z" fill="url(#at-suit)" stroke="#020206" strokeWidth="1.2"/>
             {/* Glowing neon visors */}
-            <rect x="16" y="7" width="10" height="4.5" fill="url(#at-glass)" rx="2.2" />
+            <rect x="16" y="7" width="10" height="4.5" fill="url(#at-glass)" rx="2.2" stroke="#020206" strokeWidth="1" />
             <ellipse cx="21" cy="9.2" rx="1.5" ry="1.5" fill="#ffffff" className="animate-ping" />
           </g>
         </svg>
@@ -1130,6 +1151,28 @@ export default function GameArea({ isPlaying, onGameOver, speedMultiplier }: Gam
           0% { transform: scaleX(0.9) scaleY(1); opacity: 0.75; }
           100% { transform: scaleX(1.15) scaleY(0.85); opacity: 0.45; }
         }
+        /* Running cycles only active when player has the .running class */
+        .running .at-leg-front {
+          transform-origin: 21px 38px;
+          animation: legRunFront 0.18s infinite linear;
+        }
+        .running .at-leg-back {
+          transform-origin: 15px 38px;
+          animation: legRunBack 0.18s infinite linear;
+        }
+        .running .at-torso-group {
+          transform-origin: 17px 35px;
+          animation: torsoBob 0.09s infinite ease-in-out alternate;
+        }
+        .running .at-arm {
+          transform-origin: 23px 21px;
+          animation: armRun 0.18s infinite ease-in-out alternate;
+        }
+        .running .at-arm-back {
+          transform-origin: 15px 21px;
+          animation: armRunBack 0.18s infinite ease-in-out alternate;
+        }
+
         .jumping .at-torso-group {
           transform: translateY(-2px) rotate(4deg) !important;
         }

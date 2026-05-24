@@ -1,6 +1,8 @@
 import { 
   collection, 
-  addDoc, 
+  doc,
+  setDoc,
+  getDoc,
   query, 
   orderBy, 
   limit, 
@@ -29,6 +31,7 @@ export async function fetchTopScores(limitNumber: number = 10): Promise<Score[]>
     
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      if (Boolean(data.isGuest)) return; // Exclude legacy or accidental guest rows
       scores.push({
         id: doc.id,
         userId: data.userId,
@@ -50,17 +53,32 @@ export async function fetchTopScores(limitNumber: number = 10): Promise<Score[]>
 }
 
 /**
- * Add a new score to the database
+ * Add or update a score in the database (authenticated non-guest only)
  */
 export async function submitScore(scoreData: Omit<Score, 'createdAt'>): Promise<string | null> {
   const path = SCORES_COLLECTION;
   try {
-    const scoresRef = collection(db, path);
-    const docRef = await addDoc(scoresRef, {
+    if (scoreData.isGuest) {
+      // Guests cannot appear on the cloud leaderboard
+      return null;
+    }
+
+    const scoreDocRef = doc(db, SCORES_COLLECTION, scoreData.userId);
+    const docSnap = await getDoc(scoreDocRef);
+
+    if (docSnap.exists()) {
+      const existingData = docSnap.data();
+      if (Number(scoreData.score) <= Number(existingData.score || 0)) {
+        // If the new score is not greater than the existing record, do not overwrite it
+        return scoreData.userId;
+      }
+    }
+
+    await setDoc(scoreDocRef, {
       ...scoreData,
       createdAt: serverTimestamp()
     });
-    return docRef.id;
+    return scoreData.userId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
     return null;

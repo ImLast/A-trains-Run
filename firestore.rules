@@ -35,16 +35,22 @@ service cloud.firestore {
       // Anyone can read high scores
       allow read: if true;
 
-      // Creating a score
-      allow create: if isValidId(scoreId) && isValidScore(incoming()) && (
-        // If signed in, userId must match authenticated UID, same for isGuest == false
-        (isSignedIn() && incoming().userId == request.auth.uid && incoming().isGuest == false) ||
-        // If not signed in, they must be guest
-        (!isSignedIn() && incoming().isGuest == true)
-      );
+      // Creating a score doc (only authenticated non-guest users can create under their own UID)
+      allow create: if isValidId(scoreId) && 
+                      isValidScore(incoming()) && 
+                      isSignedIn() && 
+                      scoreId == request.auth.uid &&
+                      incoming().userId == request.auth.uid && 
+                      incoming().isGuest == false;
 
-      // Scores are immutable once submitted
-      allow update, delete: if false;
+      // Updating an existing score doc (only the authenticated owner can update, if the new score is higher or equal)
+      allow update: if isSignedIn() && 
+                      scoreId == request.auth.uid && 
+                      isValidId(scoreId) && 
+                      isValidScore(incoming()) && 
+                      incoming().userId == request.auth.uid && 
+                      incoming().isGuest == false &&
+                      incoming().score >= existing().score;
     }
   }
 }

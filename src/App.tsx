@@ -160,8 +160,8 @@ export default function App() {
       }
     }
 
-    // Auto record valid high scores (> 3 meters) to Leaderboard
-    if (score > 3 && user) {
+    // Auto record valid high scores (> 3 meters) to Leaderboard (Only logged-in non-guest athletes)
+    if (score > 3 && user && !user.isGuest) {
       setSubmitting(true);
       try {
         await submitScore({
@@ -181,14 +181,25 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#030308] text-slate-100 flex flex-col justify-center items-center relative p-6 overflow-hidden select-none">
+    <div className="min-h-screen w-full bg-[#020207] text-slate-100 flex flex-col justify-center items-center relative p-6 overflow-hidden select-none">
       
+      {/* Immersive background loop video from files */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 filter brightness-[0.35] pointer-events-none"
+      >
+        <source src="/bg-video.mp4" type="video/mp4" />
+      </video>
+
       {/* Background Matrix & CRT scanline retro atmosphere styling */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.3)_50%),linear-gradient(90deg,rgba(0,255,255,0.03),rgba(255,0,0,0.02),rgba(0,0,255,0.03))] bg-[size:100%_4px,4px_100%] pointer-events-none z-50 opacity-25" />
-      <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#010103]/90 to-black pointer-events-none z-40" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.3)_50%),linear-gradient(90deg,rgba(0,255,255,0.03),rgba(255,0,0,0.02),rgba(0,0,255,0.03))] bg-[size:100%_4px,4px_100%] pointer-events-none z-50 opacity-20" />
+      <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#010103]/85 to-[#010103] pointer-events-none z-10" />
 
       {authLoading ? (
-        <div className="flex flex-col items-center gap-4 z-10">
+        <div className="flex flex-col items-center gap-4 z-20">
           <RefreshCw className="animate-spin text-cyan-400" size={40} />
           <span className="font-mono text-xs tracking-wider text-cyan-400 animate-pulse uppercase">Sincronizando com o Servidor Vought...</span>
         </div>
@@ -202,7 +213,7 @@ export default function App() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              className="w-full max-w-md bg-slate-900/95 border-4 border-cyan-500 rounded-3xl p-8 relative shadow-[0_0_35px_rgba(6,182,212,0.15)] backdrop-blur text-center z-10"
+              className="w-full max-w-[490px] bg-slate-950/92 border-4 border-cyan-500 rounded-3xl p-10 relative shadow-[0_0_50px_rgba(6,182,212,0.22)] backdrop-blur text-center z-20"
             >
               {/* Vought Tech header emblem badge */}
               <div className="mx-auto w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-700 border-2 border-cyan-400 rounded-xl flex items-center justify-center shadow-[0_0_12px_rgba(6,182,212,0.5)] mb-4 select-none">
@@ -317,7 +328,7 @@ export default function App() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              className="w-full max-w-md bg-slate-900/95 border-4 border-slate-700 rounded-3xl p-8 shadow-[0_0_35px_rgba(6,182,212,0.15)] backdrop-blur text-center z-10 relative"
+              className="w-full max-w-[490px] bg-slate-950/92 border-4 border-indigo-500 rounded-3xl p-10 shadow-[0_0_50px_rgba(99,102,241,0.22)] backdrop-blur text-center z-10 relative"
             >
               {/* Profile Card & Session status block */}
               <div className="flex items-center justify-between bg-slate-950 p-4 rounded-xl border-2 border-slate-800 mb-6 text-left">
@@ -358,15 +369,15 @@ export default function App() {
                 </button>
               </div>
 
-              <h1 className="font-mono text-2xl tracking-tighter text-glow-blue italic font-black text-white leading-none">
+              <h1 className="font-mono text-3xl tracking-tighter text-glow-blue italic font-black text-white leading-none">
                 A-TRAIN RUN
               </h1>
-              <p className="font-tech text-[9px] tracking-[0.2em] text-cyan-400 font-bold uppercase mb-6 select-none">
-                CAMPANHA DE DESEMPENHO
+              <p className="font-tech text-[9px] tracking-[0.2em] text-cyan-400 font-bold uppercase mb-6 select-none animate-pulse">
+                CAMPANHA DE DESEMPENHO COSMO
               </p>
 
               {/* Record PB Panel */}
-              <div className="mb-6 bg-gradient-to-r from-cyan-950/20 to-blue-950/20 border-2 border-cyan-500/30 rounded-xl p-4 flex items-center justify-between select-none">
+              <div className="mb-6 bg-gradient-to-r from-cyan-950/20 to-indigo-950/30 border-2 border-cyan-500/30 rounded-xl p-4 flex items-center justify-between select-none">
                 <div className="flex items-center gap-2 text-cyan-400">
                   <Trophy size={18} className="text-yellow-400" />
                   <span className="font-mono text-[10px] tracking-widest uppercase">Recorde Pessoal:</span>
@@ -378,7 +389,7 @@ export default function App() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => setScreen('playing')}
-                  className="w-full flex items-center justify-center gap-2.5 px-6 py-4 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 border-2 border-red-400 text-white font-mono text-xs tracking-widest font-black rounded-xl shadow-lg transition duration-150 hover:scale-[1.02] active:scale-[0.98] cursor-pointer uppercase"
+                  className="w-full flex items-center justify-center gap-2.5 px-6 py-4 bg-gradient-to-r from-cyan-500 via-indigo-600 to-fuchsia-600 hover:from-cyan-400 hover:via-indigo-500 hover:to-fuchsia-500 border-2 border-cyan-400 text-white font-mono text-xs tracking-widest font-black rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.4)] transition duration-155 hover:scale-[1.02] active:scale-[0.98] cursor-pointer uppercase"
                 >
                   <Play size={15} strokeWidth={3} className="text-white fill-white" />
                   Iniciar Corrida
@@ -386,7 +397,7 @@ export default function App() {
 
                 <button
                   onClick={() => setScreen('leaderboard')}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 border-2 border-slate-700 text-slate-300 hover:text-white font-mono text-xs tracking-wider rounded-xl transition duration-150 active:scale-95 cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 border-2 border-slate-700 text-slate-300 hover:text-white font-mono text-xs tracking-wider rounded-xl transition duration-155 active:scale-95 cursor-pointer"
                 >
                   <Trophy size={14} className="text-yellow-400" />
                   Placar de Líderes Geral
@@ -394,7 +405,7 @@ export default function App() {
               </div>
 
               {/* Difficulty speeds settings */}
-              <div className="mt-6 pt-5 border-t border-slate-800 flex items-center justify-between select-none font-mono text-[9px] uppercase tracking-wider">
+              <div className="mt-6 pt-5 border-t border-slate-850 flex items-center justify-between select-none font-mono text-[9px] uppercase tracking-wider">
                 <span className="text-slate-500">Dificuldade Inicial:</span>
                 <div className="flex gap-1">
                   <button 
@@ -444,7 +455,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm bg-slate-905/95 border-4 border-red-500 rounded-3xl p-8 shadow-[0_0_35px_rgba(239,68,68,0.15)] backdrop-blur text-center z-10"
+              className="w-full max-w-[450px] bg-slate-950/92 border-4 border-red-500 rounded-3xl p-10 shadow-[0_0_50px_rgba(239,68,68,0.22)] backdrop-blur text-center z-20"
             >
               <h1 className="font-mono text-3xl tracking-tighter text-glow-red italic font-black text-red-500 uppercase mb-3 select-none">
                 FIM DE JOGO
@@ -464,7 +475,9 @@ export default function App() {
 
               {/* Database sync information status feedback */}
               <div className="mb-6 py-2 px-3 bg-slate-950 rounded-lg border border-slate-800 text-center select-none font-mono text-[9px]">
-                {submitting ? (
+                {user.isGuest ? (
+                  <span className="text-amber-400 tracking-wider uppercase font-bold">Modo Visitante: Recorde de {personalBest}m salvo localmente.</span>
+                ) : submitting ? (
                   <span className="text-cyan-400 tracking-wider animate-pulse uppercase">Sincronizando placar com o servidor...</span>
                 ) : scoreSubmitted ? (
                   <span className="text-emerald-400 tracking-wider flex items-center justify-center gap-1 uppercase font-bold">
