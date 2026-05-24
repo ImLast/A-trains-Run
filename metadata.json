@@ -1,0 +1,6 @@
+{
+  "name": "A-Train Run: 32-Bit Next Gen",
+  "description": "Retro 24-bit/32-bit superhero runner with Google Login, visitor mode, customizable Vought nicknames, synthesized sounds, and Firestore leaderboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
